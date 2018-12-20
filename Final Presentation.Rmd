@@ -1,0 +1,160 @@
+---
+title: 'Final Project: Predicting World CUp Winner'
+author: "Rodrigue Beleho"
+date: "December 20, 2018"
+output: ioslides_presentation
+---
+
+
+##We decided to use the FIFA World Cup Matches dataset in order to predict the winner of the 2018 World Cup.
+
+```{r,include=FALSE}
+Iaquinta = read.csv("C:\\Users\\student\\Desktop\\MATH 421\\Math 421 Final Project\\WorldCupMatches.csv")
+library(ggplot2)
+library(caret)
+library(rpart)
+library(rattle)
+library(lattice)
+```
+
+
+##Removing useless columns
+```{r}
+Iaquinta[,"RoundID"] = NULL
+Iaquinta[,"MatchID"] = NULL
+Iaquinta[,"Referee"] = NULL
+Iaquinta[,"Assistant.1"] = NULL
+Iaquinta[,"Assistant.2"] = NULL
+Iaquinta[,"Datetime"] = NULL
+Iaquinta[,"Home.Team.Initials"] = NULL
+Iaquinta[,"Away.Team.Initials"] = NULL
+```
+
+
+##CHecking for missing values
+```{r}
+sum(is.na(Iaquinta))
+```
+
+
+##DISCUSSION ON MISSING VALUES
+
+
+##Handling missing values (1) - Missing values of categorical variables are replaced by the most frequent category in the variables
+```{r}
+AL=function(x){
+  for (i in 1:ncol(x)){
+    if (is.numeric(x[,i])){
+      x[,i][is.na(x[,i])]=mean(x[,i], na.rm=TRUE)
+    }else{
+      levels=unique(x[,i])
+      x[,i][is.na(x[,i])]=levels[which.max(tabulate(match(x[,i], levels)))]
+    }
+  }
+  return (x)
+}
+Iaquinta <- AL(Iaquinta)
+
+
+#We had 22322 missing values in the first place
+#This method brings the #of missing values to 0
+```
+
+
+##Taking Care of the levels
+```{r}
+levels(Iaquinta$Stage)
+levels(Iaquinta$Stage)=c("Prelim", "Final", "Prelim", "Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Prelim","Semi_Final","Semi_Final","Prelim","Quarter_Final","Round_16","Semi_Final","Semi_Final")
+levels(Iaquinta$Stage)
+```
+
+
+##Recoding categorical variable using one hot encoding (dummy encoding)
+```{r}
+dummies_model <- dummyVars(Year ~., data=Iaquinta)
+trainData_mat <- predict(dummies_model, newdata =Iaquinta)
+
+trainData <- data.frame(trainData_mat)
+trainData$Year <- Iaquinta$Year
+```
+
+
+##VISUALIZATION AND GRAPHS
+```{r}
+library(ggplot2)
+ggplot(data = Iaquinta) + geom_density(mapping = aes(x = Attendance, fill = Stage)) + facet_wrap(~Stage)
+```
+
+```{r}
+library(ggplot2)
+ggplot(data = Iaquinta) + geom_density(mapping = aes(x = Home.Team.Goals, fill = Stage)) + facet_wrap(~Stage)
+```
+
+
+
+```{r}
+library(ggplot2)
+ggplot(data = Iaquinta) + geom_density(mapping = aes(x = Away.Team.Goals, fill = Stage)) + facet_wrap(~Stage)
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data = Iaquinta) + geom_density(mapping = aes(x = Attendance, fill = Year)) + facet_wrap(~Year)
+```
+
+```{r}
+library(ggplot2)
+ggplot(data = Iaquinta) + geom_density(mapping = aes(x = Half.time.Home.Goals, fill = Stage)) + facet_wrap(~Stage)
+```
+
+```{r}
+library(ggplot2)
+ggplot(data = Iaquinta) + geom_density(mapping = aes(x = Half.time.Away.Goals, fill = Stage)) + facet_wrap(~Stage)
+```
+
+
+```{r}
+Al22 <- function(Iaquinta,var1,var2) {
+  rt = ggplot(data=Iaquinta) + geom_bar(mapping = aes(x = Iaquinta[,var1], fill = Iaquinta[,var2]), position = "dodge")
+  return(rt)
+}
+
+Al22(Iaquinta, 2, 2)
+
+```
+
+```{r}
+Al23 <- function(Iaquinta,var1,var2) {
+  rt = ggplot(data=Iaquinta) + geom_density(mapping = aes(x = Iaquinta[,var1], fill = Iaquinta[,var2]), position = "dodge")
+  return(rt)
+}
+
+Al23(Iaquinta, 2, 2)
+```
+
+
+```{r}
+Al25=function(x){
+  for (i in 1:ncol(x)){
+    if (is.numeric(x[,i])){
+      print(ggplot(data=x)+geom_density(mapping=aes(x=x[,i]))+xlab(names(x)[i]))
+    }
+  }
+}
+Al25(Iaquinta)
+
+```
+
+##Model Tuning - Random Forest with 10-fold cross validation
+```{r}
+myGrid = expand.grid(mtry = c(1:2), splitrule = c("gini"),
+                     min.node.size = c(1:2))
+
+rf_Iaquinta10 <- train(Stage~.,data = Iaquinta, method = "ranger", 
+               trControl = trainControl(method ="cv", number = 10, verboseIter = TRUE),
+               tuneGrid = myGrid)
+rf_Iaquinta10
+
+#Best model with an accuracy of 0.9534138 
+```
